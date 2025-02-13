@@ -1,0 +1,25 @@
+extends: default
+
+# List file patterns to ignore (one per line)
+ignore: |
+  helm/templates/deployment.yaml
+  helm/templates/ingress.yaml
+  helm/templates/service.yaml
+
+rules:
+  braces: disable
+
+  # Disable the requirement for a document start marker ("---")
+  document-start: disable
+
+  # Allow lines up to 120 characters and only warn if exceeded.
+  line-length:
+    max: 120
+    level: warning
+
+  # Disable errors for trailing spaces
+  trailing-spaces: disable
+
+  # Allow indentation with 2 spaces instead of the default 2 or 4
+  indentation:
+    spaces: 2

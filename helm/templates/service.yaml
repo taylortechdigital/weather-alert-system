@@ -1,12 +1,11 @@
----
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "weather-alerts.fullname" . }}-backend
+  name: "{{ include \"weather-alerts.fullname\" . }}-backend"
 spec:
-  type: {{ .Values.service.type }}
+  type: "{{ .Values.service.type }}"
   selector:
-    app: {{ include "weather-alerts.name" . }}-backend
+    app: "{{ include \"weather-alerts.name\" . }}-backend"
   ports:
     - protocol: TCP
       port: {{ .Values.service.backendPort }}
@@ -15,11 +14,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "weather-alerts.fullname" . }}-frontend
+  name: "{{ include \"weather-alerts.fullname\" . }}-frontend"
 spec:
-  type: {{ .Values.service.type }}
+  type: "{{ .Values.service.type }}"
   selector:
-    app: {{ include "weather-alerts.name" . }}-frontend
+    app: "{{ include \"weather-alerts.name\" . }}-frontend"
   ports:
     - protocol: TCP
       port: {{ .Values.service.frontendPort }}
