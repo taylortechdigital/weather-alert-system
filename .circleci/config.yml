@@ -1,0 +1,105 @@
+version: 2.1
+
+executors:
+  terraform:
+    docker:
+      - image: hashicorp/terraform:latest
+  node:
+    docker:
+      - image: node:18-alpine
+
+jobs:
+  lint:
+    executor: terraform
+    steps:
+      - checkout
+      - run:
+          name: Run TFLint
+          command: |
+            tflint --init
+            tflint --config .tflint.hcl
+      - run:
+          name: Run Checkov
+          command: checkov -d .
+      - run:
+          name: Run yamllint
+          command: |
+            if [ -f .yamllint.yml ]; then
+              yamllint .
+            else
+              echo "No .yamllint.yml file; skipping yamllint."
+            fi
+
+  plan:
+    executor: terraform
+    steps:
+      - checkout
+      - run: terraform init
+      - run: terraform fmt
+      - run: terraform validate
+      - run: terraform plan -out=tfplan
+      - run: terraform show -no-color tfplan > plan-output.txt
+      - run:
+          name: Authenticate GitHub CLI
+          command: echo "$GITHUB_TOKEN" | gh auth login --with-token
+      - run:
+          name: Post Terraform Plan to PR
+          command: |
+            if [ -n "$CIRCLE_PR_NUMBER" ]; then
+              gh pr comment --repo $CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME --body "$(cat plan-output.txt)"
+            else
+              echo "Not a PR build; skipping PR comment."
+            fi
+
+  build:
+    executor: node
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Build & Push Backend to ECR
+          command: |
+            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+            docker build -t weather-alerts-backend -f backend/Dockerfile ./backend
+            docker tag weather-alerts-backend $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/weather-alerts-backend:latest
+            docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/weather-alerts-backend:latest
+      - run:
+          name: Build & Push Frontend to ECR
+          command: |
+            docker build -t weather-alerts-frontend -f frontend/Dockerfile ./frontend
+            docker tag weather-alerts-frontend $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/weather-alerts-frontend:latest
+            docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/weather-alerts-frontend:latest
+
+  deploy:
+    executor: terraform
+    steps:
+      - checkout
+      - run: terraform apply -auto-approve -var="use_localstack=false"
+      - run:
+          name: Deploy Application with Helm
+          command: |
+            helm upgrade --install weather-alerts ./helm \
+              --set backend.image=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/weather-alerts-backend \
+              --set frontend.image=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/weather-alerts-frontend
+
+  monitoring:
+    executor: terraform
+    steps:
+      - checkout
+      - run:
+          name: Terraform Init for Monitoring
+          command: terraform init
+      - run:
+          name: Terraform Apply Monitoring Resources
+          # This assumes your monitoring resources (namespace, helm_release for Prometheus and Grafana) are defined in your Terraform configuration
+          command: terraform apply -auto-approve -var="use_localstack=false" -target=kubernetes_namespace.monitoring -target=helm_release.prometheus -target=helm_release.grafana
+
+workflows:
+  version: 2
+  deploy:
+    jobs:
+      - lint
+      - plan
+      - build
+      - deploy
+      - monitoring
