@@ -3,16 +3,29 @@ version: 2.1
 executors:
   terraform:
     docker:
-      - image: hashicorp/terraform:latest
+      - image: hashicorp/terraform:light
+    working_directory: ~/project/terraform
   node:
     docker:
-      - image: node:18-alpine
+      - image: cimg/node:18.15.0
+    working_directory: ~/project
+  docker:
+    docker:
+      - image: cimg/docker:stable
+    working_directory: ~/project
 
 jobs:
   lint:
     executor: terraform
+    working_directory: ~/project/terraform
     steps:
       - checkout
+      - run:
+          name: Run Terraform FMT
+          command: terraform fmt -check
+      - run:
+          name: Install yamllint
+          command: apk add --no-cache yamllint || echo "yamllint not installed, skipping"
       - run:
           name: Run TFLint
           command: |
@@ -24,21 +37,29 @@ jobs:
       - run:
           name: Run yamllint
           command: |
-            if [ -f .yamllint.yml ]; then
-              yamllint .
+            if [ -f ../../.yamllint.yml ]; then
+              yamllint ../../.yamllint.yml
             else
               echo "No .yamllint.yml file; skipping yamllint."
             fi
 
   plan:
     executor: terraform
+    working_directory: ~/project/terraform
     steps:
       - checkout
-      - run: terraform init
-      - run: terraform fmt
-      - run: terraform validate
-      - run: terraform plan -out=tfplan
-      - run: terraform show -no-color tfplan > plan-output.txt
+      - run:
+          name: Terraform Init
+          command: terraform init
+      - run:
+          name: Terraform Validate
+          command: terraform validate
+      - run:
+          name: Terraform Plan
+          command: terraform plan -out=tfplan
+      - run:
+          name: Show Terraform Plan
+          command: terraform show -no-color tfplan > plan-output.txt
       - run:
           name: Authenticate GitHub CLI
           command: echo "$GITHUB_TOKEN" | gh auth login --with-token
@@ -52,38 +73,59 @@ jobs:
             fi
 
   build:
-    executor: node
+    executor: docker
+    working_directory: ~/project
     steps:
       - checkout
       - setup_remote_docker
+      # Build backend image
       - run:
-          name: Build & Push Backend to ECR
+          name: Build Backend Image
+          command: |
+            cd backend
+            docker build -t weather-alerts-backend -f Dockerfile .
+            cd ..
+      - run:
+          name: Tag and Push Backend Image to ECR
           command: |
             aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
-            docker build -t weather-alerts-backend -f backend/Dockerfile ./backend
             docker tag weather-alerts-backend $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/weather-alerts-backend:latest
             docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/weather-alerts-backend:latest
+      # Build frontend image
       - run:
-          name: Build & Push Frontend to ECR
+          name: Build Frontend Image
           command: |
-            docker build -t weather-alerts-frontend -f frontend/Dockerfile ./frontend
+            cd frontend
+            docker build -t weather-alerts-frontend -f Dockerfile .
+            cd ..
+      - run:
+          name: Tag and Push Frontend Image to ECR
+          command: |
             docker tag weather-alerts-frontend $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/weather-alerts-frontend:latest
             docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/weather-alerts-frontend:latest
 
   deploy:
     executor: terraform
+    working_directory: ~/project/terraform
     steps:
       - checkout
-      - run: terraform apply -auto-approve -var="use_localstack=false"
       - run:
-          name: Deploy Application with Helm
+          name: Install Helm CLI
           command: |
-            helm upgrade --install weather-alerts ./helm \
+            curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      - run:
+          name: Terraform Apply
+          command: terraform init && terraform apply -auto-approve
+      - run:
+          name: Deploy Application via Helm
+          command: |
+            helm upgrade --install weather-alerts ../helm \
               --set backend.image=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/weather-alerts-backend \
               --set frontend.image=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/weather-alerts-frontend
 
   monitoring:
     executor: terraform
+    working_directory: ~/project/terraform
     steps:
       - checkout
       - run:
@@ -91,8 +133,7 @@ jobs:
           command: terraform init
       - run:
           name: Terraform Apply Monitoring Resources
-          # This assumes your monitoring resources (namespace, helm_release for Prometheus and Grafana) are defined in your Terraform configuration
-          command: terraform apply -auto-approve -var="use_localstack=false" -target=kubernetes_namespace.monitoring -target=helm_release.prometheus -target=helm_release.grafana
+          command: terraform apply -auto-approve -target=kubernetes_namespace.monitoring -target=helm_release.prometheus -target=helm_release.grafana
 
 workflows:
   version: 2
