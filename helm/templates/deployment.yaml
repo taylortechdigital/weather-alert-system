@@ -1,42 +1,65 @@
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "weather-alerts.fullname" . }}-backend
+  name: "{{ include \"weather-alerts.fullname\" . }}-backend"
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: {{ include "weather-alerts.name" . }}-backend
+      app: "{{ include \"weather-alerts.name\" . }}-backend"
   template:
     metadata:
       labels:
-        app: {{ include "weather-alerts.name" . }}-backend
+        app: "{{ include \"weather-alerts.name\" . }}-backend"
     spec:
       containers:
         - name: backend
           image: "{{ .Values.backend.image }}"
-          imagePullPolicy: {{ .Values.backend.pullPolicy }}
+          imagePullPolicy: "{{ .Values.backend.pullPolicy }}"
           ports:
             - containerPort: {{ .Values.backend.port }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.backend.port }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.backend.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "weather-alerts.fullname" . }}-frontend
+  name: "{{ include \"weather-alerts.fullname\" . }}-frontend"
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: {{ include "weather-alerts.name" . }}-frontend
+      app: "{{ include \"weather-alerts.name\" . }}-frontend"
   template:
     metadata:
       labels:
-        app: {{ include "weather-alerts.name" . }}-frontend
+        app: "{{ include \"weather-alerts.name\" . }}-frontend"
     spec:
       containers:
         - name: frontend
           image: "{{ .Values.frontend.image }}"
-          imagePullPolicy: {{ .Values.frontend.pullPolicy }}
+          imagePullPolicy: "{{ .Values.frontend.pullPolicy }}"
           ports:
             - containerPort: {{ .Values.frontend.port }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.frontend.port }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.frontend.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
