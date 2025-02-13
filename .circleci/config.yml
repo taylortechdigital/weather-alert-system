@@ -1,40 +1,50 @@
 version: 2.1
 
 orbs:
-  aws-ecr: circleci/aws-ecr@7.2.0
-  aws-cli: circleci/aws-cli@4.0.0
-  terraform: circleci/terraform@1.0.5
-  helm: circleci/helm@0.4.0
+  terraform: circleci/terraform@3.5.1
+  helm: circleci/helm@3.1.0
+  aws-ecr: circleci/aws-ecr@9.3.7
+  aws-cli: circleci/aws-cli@5.2.0
+
+executors:
+  default-base:
+    docker:
+      - image: cimg/base:stable
+    working_directory: ~/project
+  default-docker:
+    docker:
+      - image: cimg/docker:stable
+    working_directory: ~/project
 
 jobs:
   lint:
-    executor:
-      name: cimg/base:stable
-      working_directory: ~/project
+    executor: default-base
+    working_directory: ~/project/terraform
     steps:
       - checkout
       - run:
-          name: Terraform FMT Check
-          command: cd terraform && terraform fmt -check
+          name: Terraform fmt check
+          command: terraform fmt -check
       - run:
           name: Run TFLint
-          command: cd terraform && tflint --init && tflint --config .tflint.hcl
+          command: |
+            tflint --init
+            tflint --config .tflint.hcl
       - run:
           name: Run Checkov
-          command: cd terraform && checkov -d .
+          command: checkov -d .
       - run:
           name: Run yamllint
           command: |
-            if [ -f .yamllint.yml ]; then
-              yamllint .
+            if [ -f ../../.yamllint.yml ]; then
+              yamllint ../../.yamllint.yml
             else
               echo "No .yamllint.yml file; skipping yamllint."
             fi
 
   plan:
-    executor:
-      name: cimg/base:stable
-      working_directory: ~/project/terraform
+    executor: default-base
+    working_directory: ~/project/terraform
     steps:
       - checkout
       - terraform/init:
@@ -60,14 +70,13 @@ jobs:
             fi
 
   build:
-    executor:
-      name: cimg/docker:stable
-      working_directory: ~/project
+    executor: default-docker
+    working_directory: ~/project
     steps:
       - checkout
       - setup_remote_docker
       - aws-ecr/login:
-          aws-region: << parameters.aws_region >>  # Alternatively, you can hardcode "us-east-1" if desired
+          aws-region: "$AWS_REGION"
           account-url: "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
       - run:
           name: Build Backend Image
@@ -93,9 +102,8 @@ jobs:
             docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/weather-alerts-frontend:latest
 
   deploy:
-    executor:
-      name: cimg/base:stable
-      working_directory: ~/project/terraform
+    executor: default-base
+    working_directory: ~/project/terraform
     steps:
       - checkout
       - terraform/init:
@@ -111,9 +119,8 @@ jobs:
             frontend.image: "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/weather-alerts-frontend"
 
   monitoring:
-    executor:
-      name: cimg/base:stable
-      working_directory: ~/project/terraform
+    executor: default-base
+    working_directory: ~/project/terraform
     steps:
       - checkout
       - terraform/init:
