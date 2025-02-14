@@ -197,13 +197,3 @@ jobs:
 
       - name: Apply Monitoring Resources
         run: terraform apply -auto-approve -target=kubernetes_namespace.monitoring -target=helm_release.prometheus -target=helm_release.grafana
-
-workflows:
-  deploy_workflow:
-    jobs:
-      - lint
-      - plan
-      - test_infra
-      - build
-      - deploy
-      - monitoring
