@@ -36,8 +36,8 @@ jobs:
 
       - name: Run TFLint
         run: |
-        tflint --init
-        tflint --config "${GITHUB_WORKSPACE}/terraform/modules/.tflint.hcl"
+          tflint --init
+          tflint --config "${GITHUB_WORKSPACE}/terraform/modules/.tflint.hcl"
 
 
       - name: Install Checkov
