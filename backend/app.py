@@ -22,7 +22,7 @@ app.add_middleware(
 )
 
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
-SNS_TOPIC_ARN = os.getenv("SNS_TOPIC_ARN", "arn:aws:sns:us-east-1:000000000000:weather-alerts")
+SNS_TOPIC_ARN = os.getenv("SNS_TOPIC_ARN", "arn:aws:sns:us-east-1:922890021564:weather-alerts")
 
 sns = boto3.client(
     "sns",

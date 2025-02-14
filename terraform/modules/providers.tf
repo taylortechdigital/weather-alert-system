@@ -1,6 +1,10 @@
 terraform {
   required_version = ">= 1.3"
-  
+  backend "s3" {
+    bucket         = "weather-alert-system"
+    key            = "state/terraform.tfstate"
+    region         = var.aws_region
+  }
   required_providers {
     aws = {
       source  = "hashicorp/aws"

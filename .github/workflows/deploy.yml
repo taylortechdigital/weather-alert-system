@@ -43,6 +43,7 @@ jobs:
     defaults:
       run:
         working-directory: terraform
+    needs: lint
     steps:
       - uses: actions/checkout@v3
       - name: Setup Terraform
@@ -62,13 +63,14 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           gh pr comment ${{ github.event.pull_request.number }} --body "$(cat plan-output.txt)"
-  
+
   test_infra:
     name: Run Terraform Tests
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: terraform
+    needs: plan
     steps:
       - uses: actions/checkout@v3
       - name: Setup Terraform
@@ -89,6 +91,7 @@ jobs:
     defaults:
       run:
         working-directory: .
+    needs: test_infra
     steps:
       - uses: actions/checkout@v3
       - name: Configure AWS Credentials
@@ -124,6 +127,7 @@ jobs:
     defaults:
       run:
         working-directory: terraform
+    needs: build
     steps:
       - uses: actions/checkout@v3
       - name: Setup Terraform
@@ -146,6 +150,7 @@ jobs:
     defaults:
       run:
         working-directory: terraform
+    needs: deploy
     steps:
       - uses: actions/checkout@v3
       - name: Setup Terraform
@@ -154,14 +159,3 @@ jobs:
           terraform_version: '1.4.6'
       - name: Apply Monitoring Resources
         run: terraform apply -auto-approve -target=kubernetes_namespace.monitoring -target=helm_release.prometheus -target=helm_release.grafana
-
-workflows:
-  version: 2
-  deploy_workflow:
-    jobs:
-      - lint
-      - plan
-      - test_infra
-      - build
-      - deploy
-      - monitoring

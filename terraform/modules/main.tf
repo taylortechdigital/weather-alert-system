@@ -182,6 +182,15 @@ resource "aws_cloudfront_distribution" "frontend_cf" {
     cloudfront_default_certificate = true
   }
 }
+# S3 State Bucket
+resource "aws_s3_bucket" "tf_state" {
+  bucket = "weather-alert-system-state"
+
+  tags = {
+    Name        = weather-alert-system-state
+    Environment = var.environment
+  }
+}
 
 # S3 Logs Bucket (for backend logs)
 resource "aws_s3_bucket" "logs" {
