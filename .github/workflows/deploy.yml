@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: terraform
+        working-directory: terraform/modules/
     steps:
       - uses: actions/checkout@v3
 
@@ -70,7 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: terraform
+        working-directory: terraform/modules/
     needs: lint
     steps:
       - uses: actions/checkout@v3
@@ -103,7 +103,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: terraform
+        working-directory: terraform/modules
     needs: plan
     steps:
       - uses: actions/checkout@v3
@@ -169,7 +169,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: terraform
+        working-directory: terraform/modules/
     needs: build
     steps:
       - uses: actions/checkout@v3
@@ -196,7 +196,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: terraform
+        working-directory: terraform/modules/
     needs: deploy
     steps:
       - uses: actions/checkout@v3
