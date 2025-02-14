@@ -16,7 +16,17 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      # Install TFLint
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: '1.4.6'
+      
+      - name: Terraform FMT Check
+        run: terraform fmt -check
+
+      - name: Terraform Validate
+        run: terraform validate
+
       - name: Install TFLint
         run: |
           curl -L https://github.com/terraform-linters/tflint/releases/latest/download/tflint_linux_amd64.zip -o tflint.zip
@@ -24,28 +34,20 @@ jobs:
           chmod +x tflint
           sudo mv tflint /usr/local/bin/
 
-      # Install yamllint
-      - name: Install yamllint
-        run: |
-          sudo apt-get update && sudo apt-get install -y yamllint
-
-      # Install Checkov
-      - name: Install Checkov
-        run: pip install checkov
-
-      - name: Terraform FMT Check
-        run: terraform fmt -check
-
-      - name: Terraform Validate
-        run: terraform validate
-
       - name: Run TFLint
         run: |
           tflint --init
           tflint --config .tflint.hcl
 
+      - name: Install Checkov
+        run: pip install checkov
+
       - name: Run Checkov
         run: checkov -d .
+
+      - name: Install yamllint
+        run: |
+          sudo apt-get update && sudo apt-get install -y yamllint
 
       - name: Run yamllint
         run: |
@@ -69,7 +71,7 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: '1.4.6'
-
+      
       - name: Terraform Init
         run: terraform init
 
@@ -118,28 +120,34 @@ jobs:
     needs: test_infra
     steps:
       - uses: actions/checkout@v3
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
+
       - name: Login to AWS ECR
         uses: aws-actions/amazon-ecr-login@v1
+
       - name: Build Backend Image
         run: |
           cd backend
           docker build -t weather-alerts-backend -f Dockerfile .
           cd ..
+      
       - name: Tag and Push Backend Image to ECR
         run: |
           docker tag weather-alerts-backend ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/weather-alerts-backend:latest
           docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/weather-alerts-backend:latest
+
       - name: Build Frontend Image
         run: |
           cd frontend
           docker build -t weather-alerts-frontend -f Dockerfile .
           cd ..
+      
       - name: Tag and Push Frontend Image to ECR
         run: |
           docker tag weather-alerts-frontend ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/weather-alerts-frontend:latest
@@ -154,14 +162,18 @@ jobs:
     needs: build
     steps:
       - uses: actions/checkout@v3
+      
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: '1.4.6'
+
       - name: Terraform Init & Apply
         run: terraform init && terraform apply -auto-approve
+
       - name: Install Helm
         run: curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
       - name: Deploy Helm Chart
         run: |
           helm upgrade --install weather-alerts ../helm \
@@ -177,9 +189,21 @@ jobs:
     needs: deploy
     steps:
       - uses: actions/checkout@v3
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: '1.4.6'
+
       - name: Apply Monitoring Resources
         run: terraform apply -auto-approve -target=kubernetes_namespace.monitoring -target=helm_release.prometheus -target=helm_release.grafana
+
+workflows:
+  deploy_workflow:
+    jobs:
+      - lint
+      - plan
+      - test_infra
+      - build
+      - deploy
+      - monitoring
