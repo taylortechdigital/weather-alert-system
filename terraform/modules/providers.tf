@@ -3,7 +3,7 @@ terraform {
   backend "s3" {
     bucket         = "weather-alert-system"
     key            = "state/terraform.tfstate"
-    region         = var.aws_region
+    region         = "us-east-1"
   }
   required_providers {
     aws = {
