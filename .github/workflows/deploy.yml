@@ -7,56 +7,63 @@ on:
     branches: [ main ]
 
 jobs:
-  # lint:
-  #   name: Lint & Validate Terraform
-  #   runs-on: ubuntu-latest
-  #   defaults:
-  #     run:
-  #       working-directory: terraform
-  #   steps:
-  #     - uses: actions/checkout@v3
+  lint:
+    name: Lint & Validate Terraform
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - uses: actions/checkout@v3
 
-  #     - name: Setup Terraform
-  #       uses: hashicorp/setup-terraform@v2
-  #       with:
-  #         terraform_version: '1.4.6'
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: '1.4.6'
       
-  #     - name: Terraform FMT Check
-  #       run: terraform fmt -check
+      - name: Terraform FMT Check
+        run: terraform fmt -check
+        continue-on-error: true
 
-  #     - name: Terraform Validate
-  #       run: terraform validate
+      - name: Terraform Validate
+        run: terraform validate
+        continue-on-error: true
 
-  #     - name: Install TFLint
-  #       run: |
-  #         curl -L https://github.com/terraform-linters/tflint/releases/latest/download/tflint_linux_amd64.zip -o tflint.zip
-  #         unzip tflint.zip
-  #         chmod +x tflint
-  #         sudo mv tflint /usr/local/bin/
+      - name: Install TFLint
+        run: |
+          curl -L https://github.com/terraform-linters/tflint/releases/latest/download/tflint_linux_amd64.zip -o tflint.zip
+          unzip tflint.zip
+          chmod +x tflint
+          sudo mv tflint /usr/local/bin/
+        continue-on-error: true
 
-  #     - name: Run TFLint
-  #       run: |
-  #         tflint --init
-  #         tflint --config "${GITHUB_WORKSPACE}/terraform/modules/.tflint.hcl"
+      - name: Run TFLint
+        run: |
+          tflint --init
+          tflint --config "${GITHUB_WORKSPACE}/terraform/.tflint.hcl"
+        continue-on-error: true
 
+      - name: Install Checkov
+        run: pip install checkov
+        continue-on-error: true
 
-  #     - name: Install Checkov
-  #       run: pip install checkov
+      - name: Run Checkov
+        run: checkov -d .
+        continue-on-error: true
 
-  #     - name: Run Checkov
-  #       run: checkov -d .
+      - name: Install yamllint
+        run: |
+          sudo apt-get update && sudo apt-get install -y yamllint
+        continue-on-error: true
 
-  #     - name: Install yamllint
-  #       run: |
-  #         sudo apt-get update && sudo apt-get install -y yamllint
-
-  #     - name: Run yamllint
-  #       run: |
-  #         if [ -f ../../.yamllint.yml ]; then
-  #           yamllint ../../.yamllint.yml
-  #         else
-  #           echo "No .yamllint.yml file; skipping yamllint."
-  #         fi
+      - name: Run yamllint
+        run: |
+          if [ -f "${GITHUB_WORKSPACE}/terraform/.yamllint.yml" ]; then
+            yamllint "${GITHUB_WORKSPACE}/terraform/.yamllint.yml"
+          else
+            echo "No .yamllint.yml file; skipping yamllint."
+          fi
+        continue-on-error: true
 
   plan:
     name: Terraform Plan & PR Comment
@@ -100,12 +107,15 @@ jobs:
     needs: plan
     steps:
       - uses: actions/checkout@v3
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: '1.4.6'
+      
       - name: Enable Terraform Tests
         run: echo 'experimental { tests = true }' > ~/.terraformrc
+
       - name: Terraform Test
         run: terraform test
 
