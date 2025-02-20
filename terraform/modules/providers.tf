@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.3"
+  required_version = ">= 1.10"
   # backend "s3" {
   #   bucket         = "weather-alert-system"
   #   key            = "state/terraform.tfstate"

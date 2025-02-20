@@ -19,7 +19,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: '1.4.6'
+          terraform_version: '1.10'
       
       - name: Terraform FMT Check
         run: terraform fmt -check
@@ -40,7 +40,7 @@ jobs:
       - name: Run TFLint
         run: |
           tflint --init
-          tflint --config "${GITHUB_WORKSPACE}/terraform/.tflint.hcl"
+          tflint --config "${GITHUB_WORKSPACE}/terraform/modules/.tflint.hcl"
         continue-on-error: true
 
       - name: Install Checkov
@@ -78,7 +78,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: '1.4.6'
+          terraform_version: '1.10'
       
       - name: Terraform Init
         run: terraform init
@@ -111,7 +111,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: '1.4.6'
+          terraform_version: '1.10'
       
       - name: Enable Terraform Tests
         run: echo 'experimental { tests = true }' > ~/.terraformrc
@@ -177,7 +177,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: '1.4.6'
+          terraform_version: '1.10'
 
       - name: Terraform Init & Apply
         run: terraform init && terraform apply -auto-approve
@@ -204,7 +204,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: '1.4.6'
+          terraform_version: '1.10'
 
       - name: Apply Monitoring Resources
         run: terraform apply -auto-approve -target=kubernetes_namespace.monitoring -target=helm_release.prometheus -target=helm_release.grafana
